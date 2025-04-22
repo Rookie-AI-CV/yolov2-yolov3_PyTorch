@@ -4,6 +4,7 @@ from numpy import random
 
 
 def intersect(box_a, box_b):
+    """计算两个框的交集面积"""
     max_xy = np.minimum(box_a[:, 2:], box_b[2:])
     min_xy = np.maximum(box_a[:, :2], box_b[:2])
     inter = np.clip((max_xy - min_xy), a_min=0, a_max=np.inf)
@@ -11,15 +12,15 @@ def intersect(box_a, box_b):
 
 
 def jaccard_numpy(box_a, box_b):
-    """Compute the jaccard overlap of two sets of boxes.  The jaccard overlap
-    is simply the intersection over union of two boxes.
-    E.g.:
+    """计算两组框的Jaccard重叠度。
+    Jaccard重叠度就是两个框的交集除以并集。
+    例如:
         A ∩ B / A ∪ B = A ∩ B / (area(A) + area(B) - A ∩ B)
-    Args:
-        box_a: Multiple bounding boxes, Shape: [num_boxes,4]
-        box_b: Single bounding box, Shape: [4]
-    Return:
-        jaccard overlap: Shape: [box_a.shape[0], box_a.shape[1]]
+    参数:
+        box_a: 多个边界框, 形状: [num_boxes,4]
+        box_b: 单个边界框, 形状: [4]
+    返回:
+        jaccard重叠度: 形状: [box_a.shape[0], box_a.shape[1]]
     """
     inter = intersect(box_a, box_b)
     area_a = ((box_a[:, 2]-box_a[:, 0]) *
@@ -31,10 +32,10 @@ def jaccard_numpy(box_a, box_b):
 
 
 class Compose(object):
-    """Composes several augmentations together.
-    Args:
-        transforms (List[Transform]): list of transforms to compose.
-    Example:
+    """将多个数据增强操作组合在一起。
+    参数:
+        transforms (List[Transform]): 要组合的变换列表。
+    示例:
         >>> augmentations.Compose([
         >>>     transforms.CenterCrop(10),
         >>>     transforms.ToTensor(),
@@ -51,11 +52,13 @@ class Compose(object):
 
 
 class ConvertFromInts(object):
+    """将图像从整数类型转换为浮点类型"""
     def __call__(self, image, boxes=None, labels=None):
         return image.astype(np.float32), boxes, labels
 
 
 class Normalize(object):
+    """图像标准化处理"""
     def __init__(self, mean=None, std=None):
         self.mean = np.array(mean, dtype=np.float32)
         self.std = np.array(std, dtype=np.float32)
@@ -70,6 +73,7 @@ class Normalize(object):
 
 
 class ToAbsoluteCoords(object):
+    """将归一化的坐标转换为绝对坐标"""
     def __call__(self, image, boxes=None, labels=None):
         height, width, channels = image.shape
         boxes[:, 0] *= width
@@ -81,6 +85,7 @@ class ToAbsoluteCoords(object):
 
 
 class ToPercentCoords(object):
+    """将绝对坐标转换为归一化坐标"""
     def __call__(self, image, boxes=None, labels=None):
         height, width, channels = image.shape
         boxes[:, 0] /= width
@@ -92,6 +97,7 @@ class ToPercentCoords(object):
 
 
 class Resize(object):
+    """调整图像大小"""
     def __init__(self, size=416):
         self.size = size
 
@@ -101,11 +107,12 @@ class Resize(object):
 
 
 class RandomSaturation(object):
+    """随机调整饱和度"""
     def __init__(self, lower=0.5, upper=1.5):
         self.lower = lower
         self.upper = upper
-        assert self.upper >= self.lower, "contrast upper must be >= lower."
-        assert self.lower >= 0, "contrast lower must be non-negative."
+        assert self.upper >= self.lower, "对比度上限必须大于等于下限"
+        assert self.lower >= 0, "对比度下限必须非负"
 
     def __call__(self, image, boxes=None, labels=None):
         if random.randint(2):
@@ -115,6 +122,7 @@ class RandomSaturation(object):
 
 
 class RandomHue(object):
+    """随机调整色调"""
     def __init__(self, delta=18.0):
         assert delta >= 0.0 and delta <= 360.0
         self.delta = delta
@@ -128,6 +136,7 @@ class RandomHue(object):
 
 
 class RandomLightingNoise(object):
+    """随机调整光照噪声"""
     def __init__(self):
         self.perms = ((0, 1, 2), (0, 2, 1),
                       (1, 0, 2), (1, 2, 0),
@@ -136,12 +145,13 @@ class RandomLightingNoise(object):
     def __call__(self, image, boxes=None, labels=None):
         if random.randint(2):
             swap = self.perms[random.randint(len(self.perms))]
-            shuffle = SwapChannels(swap)  # shuffle channels
+            shuffle = SwapChannels(swap)  # 打乱通道
             image = shuffle(image)
         return image, boxes, labels
 
 
 class ConvertColor(object):
+    """颜色空间转换"""
     def __init__(self, current='BGR', transform='HSV'):
         self.transform = transform
         self.current = current
@@ -157,13 +167,13 @@ class ConvertColor(object):
 
 
 class RandomContrast(object):
+    """随机调整对比度"""
     def __init__(self, lower=0.5, upper=1.5):
         self.lower = lower
         self.upper = upper
-        assert self.upper >= self.lower, "contrast upper must be >= lower."
-        assert self.lower >= 0, "contrast lower must be non-negative."
+        assert self.upper >= self.lower, "对比度上限必须大于等于下限"
+        assert self.lower >= 0, "对比度下限必须非负"
 
-    # expects float image
     def __call__(self, image, boxes=None, labels=None):
         if random.randint(2):
             alpha = random.uniform(self.lower, self.upper)
@@ -172,6 +182,7 @@ class RandomContrast(object):
 
 
 class RandomBrightness(object):
+    """随机调整亮度"""
     def __init__(self, delta=32):
         assert delta >= 0.0
         assert delta <= 255.0
@@ -185,35 +196,35 @@ class RandomBrightness(object):
 
 
 class RandomSampleCrop(object):
-    """Crop
-    Arguments:
-        img (Image): the image being input during training
-        boxes (Tensor): the original bounding boxes in pt form
-        labels (Tensor): the class labels for each bbox
-        mode (float tuple): the min and max jaccard overlaps
-    Return:
+    """随机裁剪
+    参数:
+        img (Image): 训练时输入的图像
+        boxes (Tensor): 原始边界框(pt格式)
+        labels (Tensor): 每个边界框的类别标签
+        mode (float tuple): 最小和最大jaccard重叠度
+    返回:
         (img, boxes, classes)
-            img (Image): the cropped image
-            boxes (Tensor): the adjusted bounding boxes in pt form
-            labels (Tensor): the class labels for each bbox
+            img (Image): 裁剪后的图像
+            boxes (Tensor): 调整后的边界框(pt格式)
+            labels (Tensor): 每个边界框的类别标签
     """
     def __init__(self):
         self.sample_options = (
-            # using entire original input image
+            # 使用整个原始输入图像
             None,
-            # sample a patch s.t. MIN jaccard w/ obj in .1,.3,.4,.7,.9
+            # 采样一个补丁使得与目标的最小jaccard重叠度为.1,.3,.4,.7,.9
             (0.1, None),
             (0.3, None),
             (0.7, None),
             (0.9, None),
-            # randomly sample a patch
+            # 随机采样一个补丁
             (None, None),
         )
 
     def __call__(self, image, boxes=None, labels=None):
         height, width, _ = image.shape
         while True:
-            # randomly choose a mode
+            # 随机选择一个模式
             sample_id = np.random.randint(len(self.sample_options))
             mode = self.sample_options[sample_id]
             if mode is None:
@@ -225,71 +236,72 @@ class RandomSampleCrop(object):
             if max_iou is None:
                 max_iou = float('inf')
 
-            # max trails (50)
+            # 最大尝试次数(50)
             for _ in range(50):
                 current_image = image
 
                 w = random.uniform(0.3 * width, width)
                 h = random.uniform(0.3 * height, height)
 
-                # aspect ratio constraint b/t .5 & 2
+                # 宽高比约束在0.5到2之间
                 if h / w < 0.5 or h / w > 2:
                     continue
 
                 left = random.uniform(width - w)
                 top = random.uniform(height - h)
 
-                # convert to integer rect x1,y1,x2,y2
+                # 转换为整数矩形坐标 x1,y1,x2,y2
                 rect = np.array([int(left), int(top), int(left+w), int(top+h)])
 
-                # calculate IoU (jaccard overlap) b/t the cropped and gt boxes
+                # 计算裁剪框与真实框之间的IoU(jaccard重叠度)
                 overlap = jaccard_numpy(boxes, rect)
 
-                # is min and max overlap constraint satisfied? if not try again
+                # 是否满足最小和最大重叠度约束,不满足则重试
                 if overlap.min() < min_iou and max_iou < overlap.max():
                     continue
 
-                # cut the crop from the image
+                # 从图像中裁剪
                 current_image = current_image[rect[1]:rect[3], rect[0]:rect[2],
                                               :]
 
-                # keep overlap with gt box IF center in sampled patch
+                # 保留中心点在采样补丁内的真实框
                 centers = (boxes[:, :2] + boxes[:, 2:]) / 2.0
 
-                # mask in all gt boxes that above and to the left of centers
+                # 掩码标记所有中心点在左上方的真实框
                 m1 = (rect[0] < centers[:, 0]) * (rect[1] < centers[:, 1])
 
-                # mask in all gt boxes that under and to the right of centers
+                # 掩码标记所有中心点在右下方的真实框
                 m2 = (rect[2] > centers[:, 0]) * (rect[3] > centers[:, 1])
 
-                # mask in that both m1 and m2 are true
+                # 掩码标记同时满足m1和m2的真实框
                 mask = m1 * m2
 
-                # have any valid boxes? try again if not
+                # 如果没有有效框则重试
                 if not mask.any():
                     continue
 
-                # take only matching gt boxes
+                # 取出匹配的真实框
                 current_boxes = boxes[mask, :].copy()
 
-                # take only matching gt labels
+                # 取出匹配的标签
                 current_labels = labels[mask]
 
-                # should we use the box left and top corner or the crop's
+                # 调整真实框坐标
                 current_boxes[:, :2] = np.maximum(current_boxes[:, :2],
                                                   rect[:2])
-                # adjust to crop (by substracting crop's left,top)
+                # 调整到裁剪区域(减去裁剪区域的左上角坐标)
                 current_boxes[:, :2] -= rect[:2]
 
                 current_boxes[:, 2:] = np.minimum(current_boxes[:, 2:],
                                                   rect[2:])
-                # adjust to crop (by substracting crop's left,top)
+                # 调整到裁剪区域(减去裁剪区域的左上角坐标)
                 current_boxes[:, 2:] -= rect[:2]
 
                 return current_image, current_boxes, current_labels
 
 
 class RandomMirror(object):
+    """随机水平翻转"""
     def __call__(self, image, boxes, classes):
         _, width, _ = image.shape
         if random.randint(2):
@@ -300,11 +312,10 @@ class RandomMirror(object):
 
 
 class SwapChannels(object):
-    """Transforms a tensorized image by swapping the channels in the order
-     specified in the swap tuple.
-    Args:
-        swaps (int triple): final order of channels
-            eg: (2, 1, 0)
+    """按指定顺序交换图像的通道
+    参数:
+        swaps (int triple): 通道的最终顺序
+            例如: (2, 1, 0)
     """
 
     def __init__(self, swaps):
@@ -312,20 +323,17 @@ class SwapChannels(object):
 
     def __call__(self, image):
         """
-        Args:
-            image (Tensor): image tensor to be transformed
-        Return:
-            a tensor with channels swapped according to swap
+        参数:
+            image (Tensor): 要变换的图像张量
+        返回:
+            按照swap交换通道后的张量
         """
-        # if torch.is_tensor(image):
-        #     image = image.data.cpu().numpy()
-        # else:
-        #     image = np.array(image)
         image = image[:, :, self.swaps]
         return image
 
 
 class PhotometricDistort(object):
+    """光度失真"""
     def __init__(self):
         self.pd = [
             RandomContrast(),
@@ -336,7 +344,6 @@ class PhotometricDistort(object):
             RandomContrast()
         ]
         self.rand_brightness = RandomBrightness()
-        # self.rand_light_noise = RandomLightingNoise()
 
     def __call__(self, image, boxes, labels):
         im = image.copy()
@@ -347,10 +354,10 @@ class PhotometricDistort(object):
             distort = Compose(self.pd[1:])
         im, boxes, labels = distort(im, boxes, labels)
         return im, boxes, labels
-        # return self.rand_light_noise(im, boxes, labels)
 
 
 class SSDAugmentation(object):
+    """SSD数据增强"""
     def __init__(self, size=416, mean=(0.406, 0.456, 0.485), std=(0.225, 0.224, 0.229)):
         self.mean = mean
         self.size = size
@@ -371,6 +378,7 @@ class SSDAugmentation(object):
 
 
 class ColorAugmentation(object):
+    """颜色增强"""
     def __init__(self, size=416, mean=(0.406, 0.456, 0.485), std=(0.225, 0.224, 0.229)):
         self.mean = mean
         self.size = size
